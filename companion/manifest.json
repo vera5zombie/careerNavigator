@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Career Navigator Autofill",
+  "version": "0.1.0",
+  "description": "Review-first contact and resume-text autofill for a single approved job application. Never submits.",
+  "permissions": ["activeTab", "scripting"],
+  "action": { "default_popup": "popup.html" }
+}

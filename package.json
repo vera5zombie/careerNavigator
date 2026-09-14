@@ -1,0 +1,24 @@
+{
+  "name": "career-navigator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/prepare.mjs && vite build",
+    "dev": "npm run build && node tools/dev.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.1",
+    "html-to-text": "^9.0.5",
+    "lucide": "^0.468.0"
+  },
+  "overrides": {"@esbuild-kit/core-utils": {"esbuild": "^0.25.12"}},
+  "devDependencies": {
+    "@openai/sites-vite-plugin": "0.2.0",
+    "drizzle-kit": "^0.31.8",
+    "esbuild": "^0.28.0",
+    "vite": "^8.0.0"
+  }
+}

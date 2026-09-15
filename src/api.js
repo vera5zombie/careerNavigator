@@ -1,4 +1,4 @@
-import { assert, str, emptyProfile, validateProfile, validateJob, createDraft, transition, packet, csv } from './domain.js';
+import { assert, str, BLIND_FIELDS, emptyProfile, validateProfile, validateJob, createDraft, transition, packet, csv } from './domain.js';
 import { discover } from './boards.js';
 
 export const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store'}});
@@ -77,6 +77,11 @@ export function createApi(seed={}) {
           assert(!['submitted','interview','offer','rejected','withdrawn'].includes(current.status),'Keep submitted content unchanged. Notes and follow-up dates can still be edited.');
           updated.draft=null;updated.approval=null;updated.answers=[];
           if(['approved','preparing','review_ready'].includes(updated.status)) updated.status='discovered';
+        }
+        if(BLIND_FIELDS.some(k=>(updated[k]??null)!==(current[k]??null))){
+          updated.approval=null;
+          if(['approved','preparing'].includes(updated.status))updated.status='review_ready';
+          event='Blind ratings updated';
         }
       } else if(method==='POST'&&action==='draft') {
         assert(!['submitted','interview','offer','rejected','withdrawn','expired','skipped'].includes(current.status),'This application is closed for drafting.');

@@ -17,6 +17,32 @@ export function str(value, max=1000) {
   assert(typeof value === 'string' && value.length <= max, `Expected text of at most ${max} characters.`);
   return value.trim();
 }
+export const BLIND_MINIMUMS=Object.freeze({workLifeBalance:3.0,overall:3.5});
+export const BLIND_FIELDS=['blindWorkLifeBalance','blindOverall','blindSourceUrl','blindCheckedDate'];
+const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+function rating(value) {
+  if(value==null||(typeof value==='string'&&!value.trim()))return null;
+  assert(typeof value==='number'||typeof value==='string','A Blind rating must be a number.');
+  const result=Number(value);
+  assert(Number.isFinite(result)&&result>=1&&result<=5,'Blind ratings must be between 1 and 5, or left blank.');
+  return result;
+}
+export function blindScreen(job) {
+  const metrics=[
+    {label:'Work-life balance',value:job.blindWorkLifeBalance??null,minimum:BLIND_MINIMUMS.workLifeBalance},
+    {label:'Overall',value:job.blindOverall??null,minimum:BLIND_MINIMUMS.overall},
+  ];
+  const failed=metrics.filter(m=>m.value!==null&&m.value<m.minimum);
+  const missing=metrics.filter(m=>m.value===null);
+  const reasons=failed.map(m=>`${m.label} ${m.value} is below ${m.minimum.toFixed(1)}.`);
+  const unknowns=missing.map(m=>`Blind ${m.label.toLowerCase()} rating not recorded`);
+  if(!job.blindSourceUrl||!job.blindCheckedDate)unknowns.push('Blind rating source and check date not recorded');
+  const status=failed.length?'no':unknowns.length?'unknown':'pass';
+  return {status,label:{no:'No',unknown:'Unknown',pass:'Meets minimums'}[status],metrics,reasons,unknowns};
+}
+function enforceBlindScreen(job) {
+  assert(blindScreen(job).status!=='no','This role fails your Blind minimums: work-life balance 3.0 and overall 3.5. Preparation approval and autofill are blocked.');
+}
 export function safeUrl(value) {
   let u;
   try {u=new URL(value);} catch {assert(false,'Enter a complete HTTPS job URL.');}
@@ -64,6 +90,16 @@ export function validateJob(input) {
   for(const n of [j.tcMin,j.tcMax]) assert(n===null||(Number.isFinite(n)&&n>=0&&n<=10000000),'Invalid annual total compensation.');
   assert(j.tcMin===null||j.tcMax===null||j.tcMin<=j.tcMax,'Compensation minimum exceeds maximum.');
   assert((j.tcMin===null&&j.tcMax===null)||j.payEvidence,'Total compensation needs a source or recruiter quote. Base salary is not total compensation.');
+  j.blindWorkLifeBalance=rating(input.blindWorkLifeBalance);
+  j.blindOverall=rating(input.blindOverall);
+  j.blindSourceUrl=str(input.blindSourceUrl??'',2000);
+  j.blindCheckedDate=str(input.blindCheckedDate??'',10);
+  if(j.blindSourceUrl){
+    j.blindSourceUrl=safeUrl(j.blindSourceUrl);
+    assert(/(^|\.)teamblind\.com$/i.test(new URL(j.blindSourceUrl).hostname),'Use the Blind company-rating source URL.');
+  }
+  assert(!j.blindCheckedDate||(validDate(j.blindCheckedDate)&&j.blindCheckedDate<=new Date().toISOString().slice(0,10)),'Enter a valid, non-future Blind check date.');
+  assert((j.blindWorkLifeBalance===null&&j.blindOverall===null)||(j.blindSourceUrl&&j.blindCheckedDate),'Blind ratings need their source URL and check date.');
   return j;
 }
 const dictionary = [
@@ -84,7 +120,8 @@ export function assess(job, profile) {
   if(job.tcMin!==null&&job.tcMin>profile.targetTC) pay='Range above target';
   else if(job.tcMax!==null&&job.tcMax<=profile.targetTC) pay='Disclosed range below target';
   else if(job.tcMax!==null&&job.tcMax>profile.targetTC) pay='Range may meet target';
-  return {evidence,pay,unknowns:[...evidence.filter(e=>!e.factIds.length).map(e=>`${e.label}: no confirmed evidence matched`),
+  const blind=blindScreen(job);
+  return {evidence,pay,blind,unknowns:[...blind.unknowns,...evidence.filter(e=>!e.factIds.length).map(e=>`${e.label}: no confirmed evidence matched`),
     ...(!profile.locations?['Future location constraints not confirmed']:[]),
     ...(!job.workMode?['Office schedule not confirmed']:[]),
     ...(pay==='Unknown'?['Recurring annual total compensation not confirmed']:[])],
@@ -101,6 +138,7 @@ export function createDraft(job, profile, ids) {
 }
 export function transition(job, next, input, profileRevision, now=new Date().toISOString()) {
   assert(nextStatuses(job.status).includes(next),'That status change is not available.');
+  if(next==='approved'||next==='preparing')enforceBlindScreen(job);
   const out={...job,status:next};
   if(next==='approved') {
     assert(job.draft&&job.draftProfileRevision===profileRevision,'Create a current evidence draft before approval.');
@@ -117,6 +155,7 @@ export function transition(job, next, input, profileRevision, now=new Date().toI
   return out;
 }
 export function packet(job, profile, revision, now=new Date().toISOString()) {
+  enforceBlindScreen(job);
   assert(['approved','preparing'].includes(job.status)&&job.approval?.profileRevision===revision&&job.draftProfileRevision===revision,'Review and approve the current application before exporting.',409);
   return {schema:'career-navigator.packet.v1',createdAt:now,expiresAt:new Date(Date.parse(now)+86400000).toISOString(),
     job:{id:job.id,url:job.url,company:job.company,title:job.title},
@@ -124,7 +163,7 @@ export function packet(job, profile, revision, now=new Date().toISOString()) {
     resumeText:job.draft.resume,coverLetter:job.draft.letter,submitted:false};
 }
 export function csv(rows) {
-  const columns=['company','title','url','location','status','followup','submittedAt','notes'];
+  const columns=['company','title','url','location','status','blindScreen','blindWorkLifeBalance','blindOverall','blindSourceUrl','blindCheckedDate','followup','submittedAt','notes'];
   const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';
-  return [columns.map(cell).join(','),...rows.map(r=>columns.map(k=>cell(r[k])).join(','))].join('\r\n');
+  return [columns.map(cell).join(','),...rows.map(r=>columns.map(k=>cell(k==='blindScreen'?blindScreen(r).label:r[k])).join(','))].join('\r\n');
 }

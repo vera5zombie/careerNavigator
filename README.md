@@ -10,6 +10,7 @@ A personal application workspace extending CareerLens's source-auditable career-
 - Evidence overlap labeled as inference, with unsupported experience and compensation left unknown.
 - Resume, cover-letter and answer drafts composed only from selected confirmed facts. No external model API and no invented prose or experience.
 - Review gates, stale-approval checks and expiring single-job autofill packets.
+- Hard Blind minimums: work-life balance below 3.0 OR overall below 3.5 means No. Exact thresholds meet the minimums; missing ratings remain Unknown, not a pass. Higher pay cannot offset a failing rating.
 - An optional Chrome companion for conservative contact/resume-text autofill on supported hosted boards.
 
 This is **assisted applying**, not unattended submission. Nothing submits applications, contacts recruiters, reads inboxes or runs recurring searches. Resume drafts are selected-experience text, not a complete reconstruction of an uploaded resume. Review and attach your actual resume on the employer form. Custom questions, file uploads, consent and final submission remain manual. Opening a job never marks it submitted; recording a submission requires an employer confirmation reference.
@@ -48,6 +49,8 @@ Download it from the application's footer or use the `companion/` directory. See
 Candidate facts, employer requirements, inferred relevance and unknowns are separate. Salary numbers from a feed are not automatically interpreted as total compensation. Future location limits are explicit profile fields, not inferred from a past accepted office arrangement. Search keywords filter role titles, with location terms filtered separately; this is not a salary guarantee or hiring-probability score.
 
 Untrusted descriptions are inert text and are never instructions. Draft creation selects exact stored claims and sources. Changing material job content clears its draft and approval; changing a profile requires regeneration and review. Uploaded files are not stored by the site; a packet contains only the approved text and contact fields, never baseline compensation or the whole career plan.
+
+Blind ratings are entered with their Blind source URL and check date. They are target evidence, not candidate facts, and company-level scores do not establish team conditions. There is no automatic Blind lookup or fabricated rating. The screen is visible per role and in CSV exports. A failing screen blocks preparation approval and autofill packets on the server; updating ratings requires a fresh approval without rewriting submission history. Unknown ratings can be explicitly acknowledged during review but are never labeled a pass. These rules apply to future opportunities, not retroactively to an accepted offer.
 
 Unit and integration tests cover authentication, cross-user access, cross-origin writes, stale updates, duplicate intake, review transitions, evidence fidelity, answer drafts, CSV formula safety and conservative autofill. Live employer forms evolve; the companion is best-effort and has not been used to send a real application.
 
